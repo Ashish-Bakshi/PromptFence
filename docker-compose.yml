@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app  # Syncs your local code to the container so you don't have to rebuild on every change
+    environment:
+      - ENVIRONMENT=development
