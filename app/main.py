@@ -7,7 +7,7 @@ from app.services.audit import init_db
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initialize the database schema when the server starts
-    init_db()
+    await init_db()
     yield
     # Any cleanup code (like closing connection pools) would go here
 

@@ -5,3 +5,5 @@ __pycache__/
 .env
 audit_ledger.db
 .DS_Store
+.venv
+.python-version

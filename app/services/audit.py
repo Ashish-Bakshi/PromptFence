@@ -1,38 +1,48 @@
-import sqlite3
+import os
 import json
+import psycopg
+from psycopg.rows import dict_row
 from datetime import datetime
 from typing import List, Dict, Any
 
-DB_FILE = "audit_ledger.db"
+# Fetch the URL from docker-compose, default to local if not found
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/promptfence")
 
-def init_db():
-    """Initializes the database schema if it doesn't exist."""
-    with sqlite3.connect(DB_FILE) as conn:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS audit_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                caller_role TEXT,
-                tool_name TEXT,
-                arguments TEXT,
-                status TEXT,
-                reason TEXT
-            )
-        ''')
+def get_connection():
+    return psycopg.connect(DATABASE_URL)
 
-def log_audit_event(caller_role: str, tool_name: str, arguments: dict, status: str, reason: str = ""):
+async def init_db():
+    """Initializes the PostgreSQL database schema if it doesn't exist."""
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
+        async with conn.cursor() as cursor:
+            await cursor.execute('''
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TEXT,
+                    caller_role TEXT,
+                    tool_name TEXT,
+                    arguments TEXT,
+                    status TEXT,
+                    reason TEXT
+                )
+            ''')
+        await conn.commit()
+
+async def log_audit_event(caller_role: str, tool_name: str, arguments: dict, status: str, reason: str = ""):
     """Appends an execution attempt to the immutable ledger."""
-    with sqlite3.connect(DB_FILE) as conn:
-        conn.execute(
-            "INSERT INTO audit_logs (timestamp, caller_role, tool_name, arguments, status, reason) VALUES (?, ?, ?, ?, ?, ?)",
-            (datetime.utcnow().isoformat(), caller_role, tool_name, json.dumps(arguments), status, reason)
-        )
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
+        async with conn.cursor() as cursor:
+            await cursor.execute(
+                "INSERT INTO audit_logs (timestamp, caller_role, tool_name, arguments, status, reason) VALUES (%s, %s, %s, %s, %s, %s)",
+                (datetime.utcnow().isoformat(), caller_role, tool_name, json.dumps(arguments), status, reason)
+            )
+        await conn.commit()
 
-def get_recent_audit_logs(limit: int = 50) -> List[Dict[str, Any]]:
+async def get_recent_audit_logs(limit: int = 50) -> List[Dict[str, Any]]:
     """Retrieves recent audit logs for security review."""
-    with sqlite3.connect(DB_FILE) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT ?", (limit,))
-        rows = cursor.fetchall()
-        return [dict(row) for row in rows]
+    async with await psycopg.AsyncConnection.connect(DATABASE_URL) as conn:
+        # psycopg 3 uses row_factory=dict_row instead of RealDictCursor
+        async with conn.cursor(row_factory=dict_row) as cursor:
+            await cursor.execute("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT %s", (limit,))
+            rows = await cursor.fetchall()
+            return list(rows)
