@@ -3,6 +3,7 @@ from fastapi import FastAPI
 
 from app.api.routes import router
 from app.services.audit import init_db
+from app.services.rate_limit import redis_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -10,7 +11,8 @@ async def lifespan(app: FastAPI):
     await init_db()
     yield
     # Any cleanup code (like closing connection pools) would go here
-
+    await redis_client.aclose()
+    
 # Initialize the FastAPI application
 app = FastAPI(
     title="PromptFence",

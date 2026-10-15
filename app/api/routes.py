@@ -22,10 +22,18 @@ async def generate_token(role: str):
 
 @router.post("/execute-tool")
 async def execute_tool(request: ToolCallRequest, caller_role: str = Depends(get_caller_role),):
+
     # 0. Check Redis Rate Limits (Drops traffic immediately if over limit)
     await check_rate_limit(caller_role)
 
-    # 1. RBAC Authorization Check
+    # 1. Tool Existence Check
+    if request.tool_name not in TOOL_REGISTRY:
+        await log_audit_event(caller_role, request.tool_name, request.arguments, "blocked", "Unrecognized Tool")
+        raise HTTPException(status_code=404, detail=f"Unrecognized tool: {request.tool_name}")
+    
+    schema = TOOL_REGISTRY[request.tool_name]
+    
+    # 2. RBAC Authorization Check
     allowed_tools = ROLE_PERMISSIONS.get(caller_role, [])
     if request.tool_name not in allowed_tools:
         await log_audit_event(caller_role, request.tool_name, request.arguments, "blocked", "RBAC Unauthorized")
@@ -33,13 +41,6 @@ async def execute_tool(request: ToolCallRequest, caller_role: str = Depends(get_
             status_code=403, 
             detail=f"RBAC Blocked: Role '{caller_role}' is not authorized to execute '{request.tool_name}'"
         )
-
-    # 2. Tool Existence Check
-    if request.tool_name not in TOOL_REGISTRY:
-        await log_audit_event(caller_role, request.tool_name, request.arguments, "blocked", "Unrecognized Tool")
-        raise HTTPException(status_code=404, detail=f"Unrecognized tool: {request.tool_name}")
-    
-    schema = TOOL_REGISTRY[request.tool_name]
     
     # 3. Schema Validation Check
     try:
