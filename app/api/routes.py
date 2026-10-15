@@ -4,11 +4,15 @@ from pydantic import ValidationError
 from app.models.schemas import ToolCallRequest
 from app.core.security import ROLE_PERMISSIONS, TOOL_REGISTRY
 from app.services.audit import log_audit_event, get_recent_audit_logs
+from app.services.rate_limit import check_rate_limit
 
 router = APIRouter()
 
 @router.post("/execute-tool")
 async def execute_tool(request: ToolCallRequest):
+    # 0. Check Redis Rate Limits (Drops traffic immediately if over limit)
+    await check_rate_limit(request.caller_role)
+    
     # 1. RBAC Authorization Check
     allowed_tools = ROLE_PERMISSIONS.get(request.caller_role, [])
     if request.tool_name not in allowed_tools:
