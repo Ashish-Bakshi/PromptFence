@@ -7,9 +7,9 @@ from app.main import app
 from app.core.auth import SECRET_KEY, ALGORITHM
 from app.services.rate_limit import RATE_LIMITS, REDIS_URL
 
-# This creates a virtual "browser" that talks directly to your FastAPI app
-client_context = TestClient(app)
-client = client_context.__enter__()
+# # This creates a virtual "browser" that talks directly to your FastAPI app
+# client_context = TestClient(app)
+# client = client_context.__enter__()
 
 
 @pytest.fixture(scope="module")
