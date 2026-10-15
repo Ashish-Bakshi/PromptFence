@@ -13,6 +13,5 @@ class SendEmailArgs(BaseModel):
 
 # The master payload expected from the LLM or AI Agent
 class ToolCallRequest(BaseModel):
-    caller_role: str  
     tool_name: str
     arguments: Dict[str, Any]
