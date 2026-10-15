@@ -51,6 +51,6 @@ jobs:
 
       - name: Run Tests
         env:
-          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/promptfence
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/promptfence
           REDIS_URL: redis://localhost:6379/0
         run: python -m pytest tests/ -v
